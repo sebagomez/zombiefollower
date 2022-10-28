@@ -18,7 +18,7 @@ namespace zombiefollower
 		}
 		public async Task<IEnumerable<Status>> GetTwits(string query)
 		{
-			SearchOptions options = new SearchOptions { Query = query, User = m_user };
+			SearchOptions options = new SearchOptions { Query = query, IncludeEntities = false, User = m_user };
 			return (await Search.SearchTweets(options)).statuses;
 		}
 

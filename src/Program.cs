@@ -16,68 +16,90 @@ namespace zombiefollower
 
 		private static async Task<int> Main(string[] args)
 		{
-			AuthenticatedUser twiUser = TwitterSignIn();
-			if (twiUser is null)
-				return 1;
-
-			TableStorageWrapper storage = AzureStorageSignIn();
-			if (storage is null)
-				return 1;
-
-			TwitterWrapper twitter = new TwitterWrapper(twiUser);
+			int exitCode = 0;
+			int total = 0;
+			int changed = 0;
 
 			//Temporary, these should be parameters
 			bool follow = true;
 			bool dryrun = false;
-			string searchTerm = "DevOpsDays";
-
-			Random random = new Random();
-			if (follow)
+			string searchTerm = "Kubernetes";
+			try
 			{
-				HashSet<long> following = await twitter.GetFollowing();
-				HashSet<long> followed = new HashSet<long>();
-				foreach (var status in (await twitter.GetTwits(searchTerm)))
+				AuthenticatedUser twiUser = TwitterSignIn();
+				if (twiUser is null)
+					return 1;
+
+				TableStorageWrapper storage = AzureStorageSignIn();
+				if (storage is null)
+					return 1;
+
+				TwitterWrapper twitter = new TwitterWrapper(twiUser);
+
+				Random random = new Random();
+				
+				if (follow)
 				{
-					if (following.Contains(status.user.id) || followed.Contains(status.user.id))
+					HashSet<long> following = await twitter.GetFollowing();
+					HashSet<long> followed = new HashSet<long>();
+					foreach (var status in (await twitter.GetTwits(searchTerm)))
 					{
-						Console.WriteLine($"Already following {status.user}");
-						continue;
+						total++;
+						if (following.Contains(status.user.id) || followed.Contains(status.user.id))
+						{
+							Console.WriteLine($"Already following {status.user}");
+							continue;
+						}
+
+						if (status.user.id_str == twiUser.UserId)
+						{
+							Console.WriteLine($"Don't follow yourself {status.user}");
+							continue;
+						}
+
+						Console.WriteLine($"Follow {status.user}");
+
+						if (!dryrun)
+						{
+							Thread.Sleep(random.Next(MIN_MILLI_SECS, MAX_MILLI_SECS));
+
+							
+							await twitter.Follow(status.user.id);
+							await storage.SaveFollowed(status.user.id, status.user.ToString());
+							followed.Add(status.user.id);
+							changed++;
+						}
 					}
-
-					if (status.user.id_str == twiUser.UserId)
+				}
+				else
+				{
+					foreach (KeyValuePair<long, string> followed in await storage.GetFollowedAfter(DateTime.Today.AddDays(-1)))
 					{
-						Console.WriteLine($"Don't follow yourself {status.user}");
-						continue;
-					}
+						total++;
+						if (!dryrun)
+						{
+							Thread.Sleep(random.Next(MIN_MILLI_SECS, MAX_MILLI_SECS));
 
-					Console.WriteLine($"Follow {status.user}");
-
-					if (!dryrun)
-					{
-						Thread.Sleep(random.Next(MIN_MILLI_SECS, MAX_MILLI_SECS));
-
-						await twitter.Follow(status.user.id);
-						await storage.SaveFollowed(status.user.id, status.user.ToString());
-						followed.Add(status.user.id);
+							await twitter.Unfollow(followed.Key);
+							await storage.UpdateUnfollow(followed.Key);
+							changed++;
+						}
+						Console.WriteLine($"Unfollowed {followed.Value}");
 					}
 				}
 			}
-			else
+			catch (Exception ex)
 			{
-				foreach (KeyValuePair<long, string> followed in await storage.GetFollowedAfter(DateTime.Today.AddDays(-1)))
-				{
-					if (!dryrun)
-					{
-						Thread.Sleep(random.Next(MIN_MILLI_SECS, MAX_MILLI_SECS));
-
-						await twitter.Unfollow(followed.Key);
-						await storage.UpdateUnfollow(followed.Key);
-					}
-					Console.WriteLine($"Unfollowed {followed.Value}");
-				}
+				Console.WriteLine($"ERROR:{ex.Message}");
+				exitCode = 1;
+			}
+			finally
+			{
+				string action = follow ? "Followed" : "Unfollowed";
+				Console.WriteLine($"{action} {changed} accounts out of {total}");
 			}
 
-			return 0;
+			return exitCode;
 		}
 
 		static TableStorageWrapper AzureStorageSignIn()
