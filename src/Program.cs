@@ -73,27 +73,25 @@ namespace zombiefollower
 				azureAccountOption,
 				fromOption
 			};
-			unfollowCommand.SetHandler(Unfollow, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
+			unfollowCommand.SetHandler(Unfollow, fromOption, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
 
 			rootCommand.AddCommand(followCommand);
 			rootCommand.AddCommand(unfollowCommand);
 
 			try
 			{
-				return await rootCommand.InvokeAsync(args);
+				var res = await rootCommand.InvokeAsync(args);
+
+				if (res == 0)
+				{
+					string action = $"{args[0]}ed";
+					Console.WriteLine($"{action} {s_changed} accounts out of {s_total}");
+				}
 			}
 			catch (Exception ex)
 			{
 				Console.WriteLine($"ERROR:{ex.Message}");
 				exitCode = 1;
-			}
-			finally
-			{
-				if (args.Length > 1 && (followCommand.Aliases.Contains(args[0]) || unfollowCommand.Aliases.Contains(args[0])))
-				{
-					string action = $"{args[0]}ed";
-					Console.WriteLine($"{action} {s_changed} accounts out of {s_total}");
-				}
 			}
 
 			return exitCode;
@@ -135,21 +133,24 @@ namespace zombiefollower
 			
 		}
 
-		static async Task Unfollow(string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
+		static async Task Unfollow(DateOnly fromDate, string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
 		{
 			ZombieArguments args = SignIn(twitterApiKey, twitterApiSecret, azureAccount, azureKey);
 			if (args is null)
 				return;
 
 			Random random = new Random();
-			foreach (KeyValuePair<long, string> followed in await args.Azure!.GetFollowedAfter(DateTime.Today.AddDays(-7)))
+			if (fromDate == DateOnly.MinValue)
+				fromDate = DateOnly.FromDateTime(DateTime.Today.AddDays(-7));
+			//foreach (KeyValuePair<long, string> followed in await args.Azure!.GetFollowedAfter(fromDate.Value.ToDateTime(TimeOnly.MinValue)))
+			foreach (KeyValuePair<long, string> followed in await args.Azure!.GetFollowedBefore(fromDate.ToDateTime(TimeOnly.MinValue)))
 			{
 				s_total++;
 
 				Thread.Sleep(random.Next(MIN_MILLI_SECS, MAX_MILLI_SECS));
 
-				await args.Twitter!.Unfollow(followed.Key);
-				await args.Azure.UpdateUnfollow(followed.Key);
+				//await args.Twitter!.Unfollow(followed.Key);
+				//await args.Azure.UpdateUnfollow(followed.Key);
 				s_changed++;
 
 				Console.WriteLine($"Unfollowed {followed.Value}");

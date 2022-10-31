@@ -40,9 +40,9 @@ namespace zombiefollower
 			return !resp.IsError;
 		}
 
-		public async Task<Dictionary<long, string>> GetFollowedAfter(DateTime after)
+		public async Task<Dictionary<long, string>> GetFollowedBefore(DateTime after)
 		{
-			string queryTemplate = "Followed gt datetime'{0}' and Unfollowed eq false";
+			string queryTemplate = "Followed lt datetime'{0}' and Unfollowed eq false";
 
 			AsyncPageable<TableEntity> queryResultsFilter = m_tableClient.QueryAsync<TableEntity>(string.Format(queryTemplate, after.ToString("yyyy-MM-dd")));
 
