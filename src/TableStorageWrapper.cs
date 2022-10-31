@@ -12,6 +12,7 @@ namespace zombiefollower
 		const string HANDLE = "Handle";
 		const string FOLLOWED = "Followed";
 		const string UNFOLLOWED = "Unfollowed";
+		const string SEARCH_TERM = "SearchTerm";
 
 		TableClient m_tableClient;
 
@@ -21,16 +22,17 @@ namespace zombiefollower
 			m_tableClient.CreateIfNotExists();
 		}
 
-		public async Task<bool> SaveFollowed(long id, string handle)
+		public async Task<bool> SaveFollowed(long id, string handle, string searchTerm)
 		{
 			Dictionary<string, object> dic = new Dictionary<string, object>
 			{
-				{PARTITION_KEY, DateTime.UtcNow.ToString("yyyyMMdd") },
-				{ROW_KEY, (DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond).ToString() },
-				{ID, id },
-				{HANDLE, handle },
-				{FOLLOWED, DateTime.UtcNow },
-				{UNFOLLOWED, false}
+				{ PARTITION_KEY, DateTime.UtcNow.ToString("yyyyMMdd") },
+				{ ROW_KEY, (DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond).ToString() },
+				{ ID, id },
+				{ HANDLE, handle },
+				{ FOLLOWED, DateTime.UtcNow },
+				{ UNFOLLOWED, false },
+				{ SEARCH_TERM, searchTerm }
 			};
 			TableEntity entity = new TableEntity(dic);
 			Azure.Response resp = await m_tableClient.AddEntityAsync(entity);

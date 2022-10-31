@@ -23,7 +23,7 @@ namespace zombiefollower
 			//Temporary, these should be parameters
 			bool follow = true;
 			bool dryrun = false;
-			string searchTerm = "Kubernetes";
+			string searchTerm = "AllThingsOpen";
 			try
 			{
 				AuthenticatedUser twiUser = TwitterSignIn();
@@ -65,7 +65,7 @@ namespace zombiefollower
 
 							
 							await twitter.Follow(status.user.id);
-							await storage.SaveFollowed(status.user.id, status.user.ToString());
+							await storage.SaveFollowed(status.user.id, status.user.ToString(), searchTerm);
 							followed.Add(status.user.id);
 							changed++;
 						}
@@ -73,7 +73,7 @@ namespace zombiefollower
 				}
 				else
 				{
-					foreach (KeyValuePair<long, string> followed in await storage.GetFollowedAfter(DateTime.Today.AddDays(-1)))
+					foreach (KeyValuePair<long, string> followed in await storage.GetFollowedAfter(DateTime.Today.AddDays(-7)))
 					{
 						total++;
 						if (!dryrun)
