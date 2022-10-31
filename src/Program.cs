@@ -1,5 +1,6 @@
 ﻿using Sebagomez.TwitterLib.Helpers;
 using Sebagomez.TwitterLib.API.OAuth;
+using System.CommandLine;
 
 namespace zombiefollower
 {
@@ -14,79 +15,72 @@ namespace zombiefollower
 		const string STORAGE_KEY = "STORAGE_KEY";
 		#endregion
 
+		static int s_total = 0;
+		static int s_changed = 0;
+
 		private static async Task<int> Main(string[] args)
 		{
 			int exitCode = 0;
-			int total = 0;
-			int changed = 0;
 
-			//Temporary, these should be parameters
-			bool follow = true;
-			bool dryrun = false;
-			string searchTerm = "AllThingsOpen";
+			var twitterApiKeyOption = new Option<string>(
+				aliases: new string[] {"--twitterApiKey", "-tk"},
+				description: "Twitter API Key"
+			);
+
+			var twitterApiSercetOption = new Option<string>(
+				aliases: new string[] {"--twitterApiSecret", "-ts"},
+				description: "Twitter API Secret"
+			);
+
+			var azureAccountOption = new Option<string>(
+				aliases: new string[] {"--azureAccount", "-aa"},
+				description: "Azure Storage account name"
+			);
+
+			var azureKeyOption = new Option<string>(
+				aliases: new string[] {"--azureKey", "-ak"},
+				description: "Azure Storage key"
+			);
+
+			var searchOption = new Option<string>(
+				aliases: new string[] {"--search", "-s"},
+				description: "Search term you want to follow"
+			);
+			searchOption.IsRequired = true;
+
+			var fromOption = new Option<DateOnly>(
+				aliases: new string[] {"--from", "-f"},
+				description: "Date from when the user was followed"
+			);
+
+			var rootCommand = new RootCommand("Follows twitter users that had twiited a specific term");
+
+			var followCommand = new Command("follow", "Follows users that twitted about the searchTerm")
+			{
+				twitterApiKeyOption,
+				twitterApiSercetOption,
+				azureKeyOption,
+				azureAccountOption,
+				searchOption
+			};
+			followCommand.SetHandler(Follow, searchOption, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
+
+			var unfollowCommand = new Command("unfollow", "Unfollows users followed over a week ago")
+			{
+				twitterApiKeyOption,
+				twitterApiSercetOption,
+				azureKeyOption,
+				azureAccountOption,
+				fromOption
+			};
+			unfollowCommand.SetHandler(Unfollow, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
+
+			rootCommand.AddCommand(followCommand);
+			rootCommand.AddCommand(unfollowCommand);
+
 			try
 			{
-				AuthenticatedUser twiUser = TwitterSignIn();
-				if (twiUser is null)
-					return 1;
-
-				TableStorageWrapper storage = AzureStorageSignIn();
-				if (storage is null)
-					return 1;
-
-				TwitterWrapper twitter = new TwitterWrapper(twiUser);
-
-				Random random = new Random();
-				
-				if (follow)
-				{
-					HashSet<long> following = await twitter.GetFollowing();
-					HashSet<long> followed = new HashSet<long>();
-					foreach (var status in (await twitter.GetTwits(searchTerm)))
-					{
-						total++;
-						if (following.Contains(status.user.id) || followed.Contains(status.user.id))
-						{
-							Console.WriteLine($"Already following {status.user}");
-							continue;
-						}
-
-						if (status.user.id_str == twiUser.UserId)
-						{
-							Console.WriteLine($"Don't follow yourself {status.user}");
-							continue;
-						}
-
-						Console.WriteLine($"Follow {status.user}");
-
-						if (!dryrun)
-						{
-							Thread.Sleep(random.Next(MIN_MILLI_SECS, MAX_MILLI_SECS));
-
-							
-							await twitter.Follow(status.user.id);
-							await storage.SaveFollowed(status.user.id, status.user.ToString(), searchTerm);
-							followed.Add(status.user.id);
-							changed++;
-						}
-					}
-				}
-				else
-				{
-					foreach (KeyValuePair<long, string> followed in await storage.GetFollowedAfter(DateTime.Today.AddDays(-7)))
-					{
-						total++;
-						if (!dryrun)
-						{
-							Thread.Sleep(random.Next(MIN_MILLI_SECS, MAX_MILLI_SECS));
-
-							await twitter.Unfollow(followed.Key);
-							await storage.UpdateUnfollow(followed.Key);
-							changed++;
-						}
-						Console.WriteLine($"Unfollowed {followed.Value}");
-					}
-				}
+				return await rootCommand.InvokeAsync(args);
 			}
 			catch (Exception ex)
 			{
@@ -95,18 +89,93 @@ namespace zombiefollower
 			}
 			finally
 			{
-				string action = follow ? "Followed" : "Unfollowed";
-				Console.WriteLine($"{action} {changed} accounts out of {total}");
+				if (args.Length > 1 && (followCommand.Aliases.Contains(args[0]) || unfollowCommand.Aliases.Contains(args[0])))
+				{
+					string action = $"{args[0]}ed";
+					Console.WriteLine($"{action} {s_changed} accounts out of {s_total}");
+				}
 			}
 
 			return exitCode;
 		}
 
-		static TableStorageWrapper AzureStorageSignIn()
+		static async Task Follow(string searchTerm, string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
+		{
+			ZombieArguments args = SignIn(twitterApiKey, twitterApiSecret, azureAccount, azureKey);
+			if (args is null)
+				return;
+
+			Random random = new Random();
+			HashSet<long> following = await args.Twitter!.GetFollowing();
+			HashSet<long> followed = new HashSet<long>();
+			foreach (var status in (await args.Twitter!.GetTwits(searchTerm)))
+			{
+				s_total++;
+				if (following.Contains(status.user.id) || followed.Contains(status.user.id))
+				{
+					Console.WriteLine($"Already following {status.user}");
+					continue;
+				}
+
+				if (status.user.id_str == args.Twitter!.Me.UserId)
+				{
+					Console.WriteLine($"Don't follow yourself {status.user}");
+					continue;
+				}
+
+				Console.WriteLine($"Follow {status.user}");
+
+				Thread.Sleep(random.Next(MIN_MILLI_SECS, MAX_MILLI_SECS));
+
+				await args.Twitter!.Follow(status.user.id);
+				await args.Azure!.SaveFollowed(status.user.id, status.user.ToString(), searchTerm);
+				followed.Add(status.user.id);
+				s_changed++;
+			}
+			
+		}
+
+		static async Task Unfollow(string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
+		{
+			ZombieArguments args = SignIn(twitterApiKey, twitterApiSecret, azureAccount, azureKey);
+			if (args is null)
+				return;
+
+			Random random = new Random();
+			foreach (KeyValuePair<long, string> followed in await args.Azure!.GetFollowedAfter(DateTime.Today.AddDays(-7)))
+			{
+				s_total++;
+
+				Thread.Sleep(random.Next(MIN_MILLI_SECS, MAX_MILLI_SECS));
+
+				await args.Twitter!.Unfollow(followed.Key);
+				await args.Azure.UpdateUnfollow(followed.Key);
+				s_changed++;
+
+				Console.WriteLine($"Unfollowed {followed.Value}");
+			}
+		}
+
+		static ZombieArguments SignIn(string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
+		{
+				AuthenticatedUser twiUser = TwitterSignIn(twitterApiKey, twitterApiSecret);
+				if (twiUser is null)
+					return null;
+
+				TableStorageWrapper storage = AzureStorageSignIn(azureAccount, azureKey);
+				if (storage is null)
+					return null;
+
+				TwitterWrapper twitter = new TwitterWrapper(twiUser);
+
+				return new ZombieArguments { Twitter = twitter, Azure = storage };
+		}
+
+		static TableStorageWrapper AzureStorageSignIn(string? azureAccount, string? azureKey)
 		{
 			Console.WriteLine("Reading environment...");
-			string? storageAccount = System.Environment.GetEnvironmentVariable(STORAGE_ACCOUNT);
-			string? storageKey = System.Environment.GetEnvironmentVariable(STORAGE_KEY);
+			string? storageAccount = azureAccount is null ? System.Environment.GetEnvironmentVariable(STORAGE_ACCOUNT) : azureAccount;
+			string? storageKey = azureKey is null ? System.Environment.GetEnvironmentVariable(STORAGE_KEY) : azureKey;
 
 			if (storageAccount is null || storageKey is null)
 			{
@@ -117,14 +186,15 @@ namespace zombiefollower
 			return new TableStorageWrapper(storageAccount, storageKey);
 		}
 
-		static AuthenticatedUser TwitterSignIn()
+		static AuthenticatedUser TwitterSignIn(string? twitterApiKey, string? twitterApiSecret)
 		{
+			//Temporary (?) solution
 			AuthenticatedUser twiUser = AuthenticatedUser.Deserialize("./authenticated.user");
 			if (twiUser is null)
 			{
 				Console.WriteLine("Reading environment...");
-				string? twitterKey = System.Environment.GetEnvironmentVariable(TWITTER_API_KEY);
-				string? twitterSecret = System.Environment.GetEnvironmentVariable(TWITTER_API_SECRET);
+				string? twitterKey = twitterApiKey is null ? System.Environment.GetEnvironmentVariable(TWITTER_API_KEY) : twitterApiKey;
+				string? twitterSecret = twitterApiSecret is null ? System.Environment.GetEnvironmentVariable(TWITTER_API_SECRET) : twitterApiSecret;
 
 				if (twitterKey is null || twitterSecret is null)
 				{
