@@ -80,7 +80,7 @@ namespace zombiefollower
 			{
 				exitCode = await rootCommand.InvokeAsync(args);
 
-				if (exitCode == OK)
+				if (exitCode == OK && args.Length > 0 && (followCommand.Aliases.Contains(args[0]) || unfollowCommand.Aliases.Contains(args[0])))
 				{
 					string action = $"{args[0]}ed";
 					Console.WriteLine($"{action} {s_changed} accounts out of {s_total}");
@@ -182,10 +182,8 @@ namespace zombiefollower
 				storageKey = azureKey is null ? System.Environment.GetEnvironmentVariable(STORAGE_KEY) : azureKey;
 
 				if (storageAccount is null || storageKey is null)
-				{
-					Console.WriteLine($"{STORAGE_ACCOUNT} and/or {STORAGE_KEY} not found");
-					return null;
-				}
+					throw new ApplicationException($"{STORAGE_ACCOUNT} and/or {STORAGE_KEY} not found");
+				
 				creds = new AzureCredentials() { Account = storageAccount, Key = storageKey};
 				creds.Serialize("./azure.json");
 			}
@@ -204,10 +202,7 @@ namespace zombiefollower
 				string? twitterSecret = twitterApiSecret is null ? System.Environment.GetEnvironmentVariable(TWITTER_API_SECRET) : twitterApiSecret;
 
 				if (twitterKey is null || twitterSecret is null)
-				{
-					Console.WriteLine($"{TWITTER_API_KEY} and/or {TWITTER_API_SECRET} not found");
-					return null;
-				}
+					throw new ApplicationException($"{TWITTER_API_KEY} and/or {TWITTER_API_SECRET} not found");
 
 				twiUser = new AuthenticatedUser
 				{
