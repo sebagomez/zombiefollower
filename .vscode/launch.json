@@ -10,7 +10,7 @@
 			"request": "launch",
 			"preLaunchTask": "build",
 			"program": "${workspaceFolder}/src/bin/Debug/net6.0/zombiefollower.dll",
-			"args": ["follow", "--search", "KubeCon"],
+			"args": ["follow", "--search", "burnout"],
 			//"args": ["unfollow"],
 			"cwd": "${workspaceFolder}/src",
 			"console": "internalConsole",
