@@ -3,6 +3,5 @@ bin/
 
 .DS_Store
 
-launch.json
 twitter.user
 azure.json
