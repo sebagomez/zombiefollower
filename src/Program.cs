@@ -25,22 +25,22 @@ namespace zombiefollower
 			int exitCode = OK;
 
 			var twitterApiKeyOption = new Option<string>(
-				aliases: new string[] {"--twitterApiKey", "-tk"},
+				aliases: new string[] {"--twitter-api-key", "-tk"},
 				description: "Twitter API Key"
 			);
 
 			var twitterApiSercetOption = new Option<string>(
-				aliases: new string[] {"--twitterApiSecret", "-ts"},
+				aliases: new string[] {"--twitter-api-secret", "-ts"},
 				description: "Twitter API Secret"
 			);
 
 			var azureAccountOption = new Option<string>(
-				aliases: new string[] {"--azureAccount", "-aa"},
+				aliases: new string[] {"--azure-account", "-aa"},
 				description: "Azure Storage account name"
 			);
 
 			var azureKeyOption = new Option<string>(
-				aliases: new string[] {"--azureKey", "-ak"},
+				aliases: new string[] {"--azure-key", "-ak"},
 				description: "Azure Storage key"
 			);
 
