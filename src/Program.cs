@@ -1,6 +1,6 @@
-﻿using Sebagomez.TwitterLib.Helpers;
-using Sebagomez.TwitterLib.API.OAuth;
-using System.CommandLine;
+﻿using System.CommandLine;
+using zombiefollower.Security;
+using zombiefollower.Wrapper;
 
 namespace zombiefollower
 {
@@ -11,10 +11,6 @@ namespace zombiefollower
 		const int NOT_OK = 1;
 		const int MIN_MILLI_SECS = 500;
 		const int MAX_MILLI_SECS = 3000;
-		const string TWITTER_API_KEY = "TWITTER_API_KEY";
-		const string TWITTER_API_SECRET = "TWITTER_API_SECRET";
-		const string STORAGE_ACCOUNT = "STORAGE_ACCOUNT";
-		const string STORAGE_KEY = "STORAGE_KEY";
 		#endregion
 
 		static int s_total = 0;
@@ -24,24 +20,25 @@ namespace zombiefollower
 		{
 			int exitCode = OK;
 
+			#region Options
 			var twitterApiKeyOption = new Option<string>(
 				aliases: new string[] {"--twitter-api-key", "-tk"},
-				description: "Twitter API Key"
+				description: $"Twitter API Key (or {CredentialsManager.TWITTER_API_KEY} env var)"
 			);
 
 			var twitterApiSercetOption = new Option<string>(
 				aliases: new string[] {"--twitter-api-secret", "-ts"},
-				description: "Twitter API Secret"
+				description: $"Twitter API Secret (or {CredentialsManager.TWITTER_API_SECRET} env var)"
 			);
 
 			var azureAccountOption = new Option<string>(
 				aliases: new string[] {"--azure-account", "-aa"},
-				description: "Azure Storage account name"
+				description: $"Azure Storage account name (or {CredentialsManager.STORAGE_ACCOUNT} env var)"
 			);
 
 			var azureKeyOption = new Option<string>(
 				aliases: new string[] {"--azure-key", "-ak"},
-				description: "Azure Storage key"
+				description: $"Azure Storage key (or {CredentialsManager.STORAGE_KEY} env var)"
 			);
 
 			var searchOption = new Option<string>(
@@ -52,22 +49,24 @@ namespace zombiefollower
 
 			var fromOption = new Option<DateOnly?>(
 				aliases: new string[] {"--from", "-f"},
-				description: "Date from when the user was followed"
+				description: "Date from when the user was followed."
 			);
+			DateOnly defaultDate = DateOnly.FromDateTime(DateTime.Today.AddDays(-7));
+			fromOption.SetDefaultValue(defaultDate);
 
 			var rootCommand = new RootCommand("Follows twitter users that had twiited a specific term");
 			rootCommand.AddGlobalOption(twitterApiKeyOption);
 			rootCommand.AddGlobalOption(twitterApiSercetOption);
-			rootCommand.AddGlobalOption(azureKeyOption);
 			rootCommand.AddGlobalOption(azureAccountOption);
+			rootCommand.AddGlobalOption(azureKeyOption);
 
-			var followCommand = new Command("follow", "Follows users that twitted about the searchTerm")
+			var followCommand = new Command("follow", "Follows users that twitted about the <search> argument")
 			{
 				searchOption
 			};
 			followCommand.SetHandler<string, string?, string?, string?, string?>(Follow, searchOption, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
 
-			var unfollowCommand = new Command("unfollow", "Unfollows users followed over a week ago")
+			var unfollowCommand = new Command("unfollow", "Unfollows users followed via zombiefollower before the <from> date argument")
 			{
 				fromOption
 			};
@@ -75,6 +74,7 @@ namespace zombiefollower
 
 			rootCommand.AddCommand(followCommand);
 			rootCommand.AddCommand(unfollowCommand);
+			#endregion
 
 			try
 			{
@@ -97,7 +97,7 @@ namespace zombiefollower
 
 		static async Task Follow(string searchTerm, string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
 		{
-			ZombieArguments? args = SignIn(twitterApiKey, twitterApiSecret, azureAccount, azureKey);
+			ZombieArguments? args = CredentialsManager.SignIn(twitterApiKey, twitterApiSecret, azureAccount, azureKey);
 			if (args is null)
 				return;
 
@@ -133,7 +133,7 @@ namespace zombiefollower
 
 		static async Task Unfollow(DateOnly? fromDate, string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
 		{
-			ZombieArguments? args = SignIn(twitterApiKey, twitterApiSecret, azureAccount, azureKey);
+			ZombieArguments? args = CredentialsManager.SignIn(twitterApiKey, twitterApiSecret, azureAccount, azureKey);
 			if (args is null)
 				return;
 
@@ -154,83 +154,6 @@ namespace zombiefollower
 			}
 		}
 
-		static ZombieArguments? SignIn(string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
-		{
-				AuthenticatedUser? twiUser = TwitterSignIn(twitterApiKey, twitterApiSecret);
-				if (twiUser is null)
-					return null;
-
-				TableStorageWrapper? storage = AzureStorageSignIn(azureAccount, azureKey);
-				if (storage is null)
-					return null;
-
-				TwitterWrapper twitter = new TwitterWrapper(twiUser);
-
-				return new ZombieArguments { Twitter = twitter, Azure = storage };
-		}
-
-		static TableStorageWrapper? AzureStorageSignIn(string? azureAccount, string? azureKey)
-		{
-			string? storageAccount = "";
-			string? storageKey = "";
-			AzureCredentials? creds = AzureCredentials.Deserialize("./azure.json");
-
-			if (creds is null)
-			{
-				Console.WriteLine("Reading environment...");
-				storageAccount = azureAccount is null ? System.Environment.GetEnvironmentVariable(STORAGE_ACCOUNT) : azureAccount;
-				storageKey = azureKey is null ? System.Environment.GetEnvironmentVariable(STORAGE_KEY) : azureKey;
-
-				if (storageAccount is null || storageKey is null)
-					throw new ApplicationException($"{STORAGE_ACCOUNT} and/or {STORAGE_KEY} not found");
-				
-				creds = new AzureCredentials() { Account = storageAccount, Key = storageKey};
-				creds.Serialize("./azure.json");
-			}
-
-			return new TableStorageWrapper(creds.Account, creds.Key);
-		}
-
-		static AuthenticatedUser? TwitterSignIn(string? twitterApiKey, string? twitterApiSecret)
-		{
-			//Temporary (?) solution
-			AuthenticatedUser twiUser = AuthenticatedUser.Deserialize("./twitter.user");
-			if (twiUser is null)
-			{
-				Console.WriteLine("Reading environment...");
-				string? twitterKey = twitterApiKey is null ? System.Environment.GetEnvironmentVariable(TWITTER_API_KEY) : twitterApiKey;
-				string? twitterSecret = twitterApiSecret is null ? System.Environment.GetEnvironmentVariable(TWITTER_API_SECRET) : twitterApiSecret;
-
-				if (twitterKey is null || twitterSecret is null)
-					throw new ApplicationException($"{TWITTER_API_KEY} and/or {TWITTER_API_SECRET} not found");
-
-				twiUser = new AuthenticatedUser
-				{
-					AppSettings = new AppCredentials() { AppKey = twitterKey, AppSecret = twitterSecret }
-				};
-
-				Console.Write("Getting Twitter authentication token...");
-				string token = OAuthAuthenticator.GetOAuthToken(twitterKey, twitterSecret).Result;
-				Console.WriteLine("done!");
-				Console.WriteLine("Please open your favorite browser and go to this URL to authenticate with Twitter:");
-				Console.WriteLine($"https://api.twitter.com/oauth/authorize?oauth_token={token}");
-				Console.Write("Insert the pin here:");
-				string? pin = Console.ReadLine();
-
-				Console.Write("Getting Twitter access token...");
-				string accessToken = OAuthAuthenticator.GetPINToken(token, pin, twitterKey, twitterSecret).Result;
-				twiUser.ParseTokens(accessToken);
-				Console.WriteLine("done!");
-
-				Console.WriteLine($"Welcome {twiUser.ScreenName}!");
-				Console.WriteLine("");
-
-
-				//Temporary
-				twiUser.Serialize("./twitter.user");
-			}
-
-			return twiUser;
-		}
+		
 	}
 }

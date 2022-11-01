@@ -1,4 +1,4 @@
-namespace zombiefollower
+namespace zombiefollower.Wrapper
 {
 	internal class ZombieArguments
 	{

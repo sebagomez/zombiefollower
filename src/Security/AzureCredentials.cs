@@ -1,7 +1,7 @@
 
 using System.Text.Json;
 
-namespace zombiefollower
+namespace zombiefollower.Security
 {
 	public class AzureCredentials
 	{

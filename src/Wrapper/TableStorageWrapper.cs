@@ -1,7 +1,7 @@
 using Azure;
 using Azure.Data.Tables;
 
-namespace zombiefollower
+namespace zombiefollower.Wrapper
 {
 	internal class TableStorageWrapper
 	{
