@@ -7,6 +7,8 @@ namespace zombiefollower
 	internal class Program
 	{
 		#region Constants
+		const int OK = 0;
+		const int NOT_OK = 1;
 		const int MIN_MILLI_SECS = 500;
 		const int MAX_MILLI_SECS = 3000;
 		const string TWITTER_API_KEY = "TWITTER_API_KEY";
@@ -20,7 +22,7 @@ namespace zombiefollower
 
 		private static async Task<int> Main(string[] args)
 		{
-			int exitCode = 0;
+			int exitCode = OK;
 
 			var twitterApiKeyOption = new Option<string>(
 				aliases: new string[] {"--twitterApiKey", "-tk"},
@@ -48,41 +50,37 @@ namespace zombiefollower
 			);
 			searchOption.IsRequired = true;
 
-			var fromOption = new Option<DateOnly>(
+			var fromOption = new Option<DateOnly?>(
 				aliases: new string[] {"--from", "-f"},
 				description: "Date from when the user was followed"
 			);
 
 			var rootCommand = new RootCommand("Follows twitter users that had twiited a specific term");
+			rootCommand.AddGlobalOption(twitterApiKeyOption);
+			rootCommand.AddGlobalOption(twitterApiSercetOption);
+			rootCommand.AddGlobalOption(azureKeyOption);
+			rootCommand.AddGlobalOption(azureAccountOption);
 
 			var followCommand = new Command("follow", "Follows users that twitted about the searchTerm")
 			{
-				twitterApiKeyOption,
-				twitterApiSercetOption,
-				azureKeyOption,
-				azureAccountOption,
 				searchOption
 			};
-			followCommand.SetHandler(Follow, searchOption, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
+			followCommand.SetHandler<string, string?, string?, string?, string?>(Follow, searchOption, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
 
 			var unfollowCommand = new Command("unfollow", "Unfollows users followed over a week ago")
 			{
-				twitterApiKeyOption,
-				twitterApiSercetOption,
-				azureKeyOption,
-				azureAccountOption,
 				fromOption
 			};
-			unfollowCommand.SetHandler(Unfollow, fromOption, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
+			unfollowCommand.SetHandler<DateOnly?, string?, string?, string?, string?>(Unfollow, fromOption, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
 
 			rootCommand.AddCommand(followCommand);
 			rootCommand.AddCommand(unfollowCommand);
 
 			try
 			{
-				var res = await rootCommand.InvokeAsync(args);
+				exitCode = await rootCommand.InvokeAsync(args);
 
-				if (res == 0)
+				if (exitCode == OK)
 				{
 					string action = $"{args[0]}ed";
 					Console.WriteLine($"{action} {s_changed} accounts out of {s_total}");
@@ -91,7 +89,7 @@ namespace zombiefollower
 			catch (Exception ex)
 			{
 				Console.WriteLine($"ERROR:{ex.Message}");
-				exitCode = 1;
+				exitCode = NOT_OK;
 			}
 
 			return exitCode;
@@ -99,7 +97,7 @@ namespace zombiefollower
 
 		static async Task Follow(string searchTerm, string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
 		{
-			ZombieArguments args = SignIn(twitterApiKey, twitterApiSecret, azureAccount, azureKey);
+			ZombieArguments? args = SignIn(twitterApiKey, twitterApiSecret, azureAccount, azureKey);
 			if (args is null)
 				return;
 
@@ -133,37 +131,36 @@ namespace zombiefollower
 			
 		}
 
-		static async Task Unfollow(DateOnly fromDate, string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
+		static async Task Unfollow(DateOnly? fromDate, string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
 		{
-			ZombieArguments args = SignIn(twitterApiKey, twitterApiSecret, azureAccount, azureKey);
+			ZombieArguments? args = SignIn(twitterApiKey, twitterApiSecret, azureAccount, azureKey);
 			if (args is null)
 				return;
 
 			Random random = new Random();
-			if (fromDate == DateOnly.MinValue)
+			if (fromDate is null)
 				fromDate = DateOnly.FromDateTime(DateTime.Today.AddDays(-7));
-			//foreach (KeyValuePair<long, string> followed in await args.Azure!.GetFollowedAfter(fromDate.Value.ToDateTime(TimeOnly.MinValue)))
-			foreach (KeyValuePair<long, string> followed in await args.Azure!.GetFollowedBefore(fromDate.ToDateTime(TimeOnly.MinValue)))
+			foreach (KeyValuePair<long, string> followed in await args.Azure!.GetFollowedBefore(fromDate.Value.ToDateTime(TimeOnly.MinValue)))
 			{
 				s_total++;
 
 				Thread.Sleep(random.Next(MIN_MILLI_SECS, MAX_MILLI_SECS));
 
-				//await args.Twitter!.Unfollow(followed.Key);
-				//await args.Azure.UpdateUnfollow(followed.Key);
+				await args.Twitter!.Unfollow(followed.Key);
+				await args.Azure.UpdateUnfollow(followed.Key);
 				s_changed++;
 
 				Console.WriteLine($"Unfollowed {followed.Value}");
 			}
 		}
 
-		static ZombieArguments SignIn(string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
+		static ZombieArguments? SignIn(string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
 		{
-				AuthenticatedUser twiUser = TwitterSignIn(twitterApiKey, twitterApiSecret);
+				AuthenticatedUser? twiUser = TwitterSignIn(twitterApiKey, twitterApiSecret);
 				if (twiUser is null)
 					return null;
 
-				TableStorageWrapper storage = AzureStorageSignIn(azureAccount, azureKey);
+				TableStorageWrapper? storage = AzureStorageSignIn(azureAccount, azureKey);
 				if (storage is null)
 					return null;
 
@@ -172,25 +169,34 @@ namespace zombiefollower
 				return new ZombieArguments { Twitter = twitter, Azure = storage };
 		}
 
-		static TableStorageWrapper AzureStorageSignIn(string? azureAccount, string? azureKey)
+		static TableStorageWrapper? AzureStorageSignIn(string? azureAccount, string? azureKey)
 		{
-			Console.WriteLine("Reading environment...");
-			string? storageAccount = azureAccount is null ? System.Environment.GetEnvironmentVariable(STORAGE_ACCOUNT) : azureAccount;
-			string? storageKey = azureKey is null ? System.Environment.GetEnvironmentVariable(STORAGE_KEY) : azureKey;
+			string? storageAccount = "";
+			string? storageKey = "";
+			AzureCredentials? creds = AzureCredentials.Deserialize("./azure.json");
 
-			if (storageAccount is null || storageKey is null)
+			if (creds is null)
 			{
-				Console.WriteLine($"{STORAGE_ACCOUNT} and/or {STORAGE_KEY} not found");
-				return null;
+				Console.WriteLine("Reading environment...");
+				storageAccount = azureAccount is null ? System.Environment.GetEnvironmentVariable(STORAGE_ACCOUNT) : azureAccount;
+				storageKey = azureKey is null ? System.Environment.GetEnvironmentVariable(STORAGE_KEY) : azureKey;
+
+				if (storageAccount is null || storageKey is null)
+				{
+					Console.WriteLine($"{STORAGE_ACCOUNT} and/or {STORAGE_KEY} not found");
+					return null;
+				}
+				creds = new AzureCredentials() { Account = storageAccount, Key = storageKey};
+				creds.Serialize("./azure.json");
 			}
 
-			return new TableStorageWrapper(storageAccount, storageKey);
+			return new TableStorageWrapper(creds.Account, creds.Key);
 		}
 
-		static AuthenticatedUser TwitterSignIn(string? twitterApiKey, string? twitterApiSecret)
+		static AuthenticatedUser? TwitterSignIn(string? twitterApiKey, string? twitterApiSecret)
 		{
 			//Temporary (?) solution
-			AuthenticatedUser twiUser = AuthenticatedUser.Deserialize("./authenticated.user");
+			AuthenticatedUser twiUser = AuthenticatedUser.Deserialize("./twitter.user");
 			if (twiUser is null)
 			{
 				Console.WriteLine("Reading environment...");
@@ -226,7 +232,7 @@ namespace zombiefollower
 
 
 				//Temporary
-				twiUser.Serialize("./authenticated.user");
+				twiUser.Serialize("./twitter.user");
 			}
 
 			return twiUser;

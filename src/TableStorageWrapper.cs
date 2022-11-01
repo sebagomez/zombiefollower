@@ -5,6 +5,7 @@ namespace zombiefollower
 {
 	internal class TableStorageWrapper
 	{
+		#region Constants
 		const string CONNSTRING_TEMPLATE = "DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix=core.windows.net";
 		const string PARTITION_KEY = "PartitionKey";
 		const string ROW_KEY = "RowKey";
@@ -13,6 +14,7 @@ namespace zombiefollower
 		const string FOLLOWED = "Followed";
 		const string UNFOLLOWED = "Unfollowed";
 		const string SEARCH_TERM = "SearchTerm";
+		#endregion
 
 		TableClient m_tableClient;
 
