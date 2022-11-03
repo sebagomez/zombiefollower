@@ -90,7 +90,11 @@ namespace zombiefollower
 				{
 					string action = followCommand.Aliases.Contains(args[0]) ? "Followed" : "Unfollowed";
 					string from = followCommand.Aliases.Contains(args[0]) ? " twits" : "";
-					Console.WriteLine($"{action} {s_changed} accounts out of {s_total}{from}.");
+					Console.WriteLine($"{action} {s_changed} accounts out of {s_total}{from}");
+					
+					if ((dryRunOption.Aliases.Intersect(args)).Count() != 0)
+						Console.WriteLine($"Executed with dry-run, nothing was changed");
+
 				}
 			}
 			catch (Exception ex)
@@ -190,8 +194,5 @@ namespace zombiefollower
 
 			return NOT_OK;
 		}
-
-
-
 	}
 }
