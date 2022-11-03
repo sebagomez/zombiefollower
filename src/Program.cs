@@ -42,6 +42,12 @@ namespace zombiefollower
 					description: $"Azure Storage key (or {CredentialsManager.STORAGE_KEY} env var)"
 				);
 
+				var dryRunOption = new Option<bool>(
+					aliases: new string[] { "--dry-run", "-dr" },
+					description: $"Shows the list of accounts that would be followed/unfollowed (no modifications done)"
+				);
+				dryRunOption.SetDefaultValue(false);
+
 				var searchOption = new Option<string>(
 					aliases: new string[] { "--search", "-s" },
 					description: "Search term you want to follow"
@@ -56,6 +62,7 @@ namespace zombiefollower
 				fromOption.SetDefaultValue(defaultDate);
 
 				var rootCommand = new RootCommand("Follows twitter users that had twiited a specific term");
+				rootCommand.AddGlobalOption(dryRunOption);
 				rootCommand.AddGlobalOption(twitterApiKeyOption);
 				rootCommand.AddGlobalOption(twitterApiSercetOption);
 				rootCommand.AddGlobalOption(azureAccountOption);
@@ -65,13 +72,13 @@ namespace zombiefollower
 				{
 					searchOption
 				};
-				followCommand.SetHandler<string, string?, string?, string?, string?>(Follow, searchOption, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
+				followCommand.SetHandler<string, bool, string?, string?, string?, string?>(Follow, searchOption, dryRunOption, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
 
 				var unfollowCommand = new Command("unfollow", "Unfollows users followed via zombiefollower before the <from> date argument")
 				{
 					fromOption
 				};
-				unfollowCommand.SetHandler<DateOnly?, string?, string?, string?, string?>(Unfollow, fromOption, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
+				unfollowCommand.SetHandler<DateOnly?, bool, string?, string?, string?, string?>(Unfollow, fromOption, dryRunOption, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
 
 				rootCommand.AddCommand(followCommand);
 				rootCommand.AddCommand(unfollowCommand);
@@ -94,7 +101,7 @@ namespace zombiefollower
 			return exitCode;
 		}
 
-		static async Task<int> Follow(string searchTerm, string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
+		static async Task<int> Follow(string searchTerm, bool dryRun, string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
 		{
 			try
 			{
@@ -122,10 +129,13 @@ namespace zombiefollower
 
 					Console.WriteLine($"Follow {status.user}");
 
-					Thread.Sleep(random.Next(MIN_MILLI_SECS, MAX_MILLI_SECS));
+					if (!dryRun)
+					{
+						Thread.Sleep(random.Next(MIN_MILLI_SECS, MAX_MILLI_SECS));
 
-					await args.Twitter!.Follow(status.user.id);
-					await args.Azure!.SaveFollowed(status.user.id, status.user.ToString(), searchTerm);
+						await args.Twitter!.Follow(status.user.id);
+						await args.Azure!.SaveFollowed(status.user.id, status.user.ToString(), searchTerm);
+					}
 					followed.Add(status.user.id);
 					s_changed++;
 				}
@@ -137,7 +147,7 @@ namespace zombiefollower
 			return OK;
 		}
 
-		static async Task<int> Unfollow(DateOnly? fromDate, string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
+		static async Task<int> Unfollow(DateOnly? fromDate, bool dryRun, string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
 		{
 			try
 			{
@@ -152,10 +162,13 @@ namespace zombiefollower
 				{
 					s_total++;
 
-					Thread.Sleep(random.Next(MIN_MILLI_SECS, MAX_MILLI_SECS));
+					if (!dryRun)
+					{
+						Thread.Sleep(random.Next(MIN_MILLI_SECS, MAX_MILLI_SECS));
 
-					await args.Twitter!.Unfollow(followed.Key);
-					await args.Azure.UpdateUnfollow(followed.Key);
+						await args.Twitter!.Unfollow(followed.Key);
+						await args.Azure.UpdateUnfollow(followed.Key);
+					}
 					s_changed++;
 
 					Console.WriteLine($"Unfollowed {followed.Value}");
