@@ -81,8 +81,9 @@ namespace zombiefollower
 
 				if (args.Length > 0 && (followCommand.Aliases.Contains(args[0]) || unfollowCommand.Aliases.Contains(args[0])))
 				{
-					string action = $"{args[0]}ed";
-					Console.WriteLine($"{action} {s_changed} accounts out of {s_total}");
+					string action = followCommand.Aliases.Contains(args[0]) ? "Followed" : "Unfollowed";
+					string from = followCommand.Aliases.Contains(args[0]) ? " twits" : "";
+					Console.WriteLine($"{action} {s_changed} accounts out of {s_total}{from}.");
 				}
 			}
 			catch (Exception ex)
