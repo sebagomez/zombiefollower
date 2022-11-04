@@ -170,7 +170,14 @@ namespace zombiefollower
 					{
 						Thread.Sleep(random.Next(MIN_MILLI_SECS, MAX_MILLI_SECS));
 
-						await args.Twitter!.Unfollow(followed.Key);
+						try
+						{
+							await args.Twitter!.Unfollow(followed.Key);
+						}
+						catch(Exception ex)
+						{
+							Console.WriteLine($"WARN: Error unfollowing {followed.Value} ({followed.Key}).{ex.Message}");
+						}
 						await args.Azure.UpdateUnfollow(followed.Key);
 					}
 					s_changed++;
