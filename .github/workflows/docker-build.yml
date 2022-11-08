@@ -39,5 +39,3 @@ jobs:
       with:
         push: true
         tags: sebagomez/zombiefollower:latest,sebagomez/zombiefollower:${{ env.build_number }}
-        add_git_labels: false
-        path: ./
