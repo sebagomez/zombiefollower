@@ -11,7 +11,9 @@ dotnet zombiefollower.dll follow --search Kubernetes --twitter-api-key <twitter-
 
 You will then be asked to validate your twitter account in your browser and paste the provided code back to the command line.
 
-And voila! You'll be following (A LOT) of people that twitted about Kubernetes
+And voila! You'll be following (A LOT) of people that twitted about Kubernetes.
+
+Keep in mind the credentials are serialized locally, so you don't have to send credentials everytime you want to run the zombie. Use the config-path argument to tell the progeam the directory where the credential files should be read from and serialized to.
 
 ```
 ❯ dotnet zombiefollower.dll --help
@@ -23,6 +25,7 @@ Usage:
 
 Options:
   -dr, --dry-run                                  Shows the list of accounts that would be followed/unfollowed (no modifications done) [default: False]
+  -cf, --config-path <config-path>                Path where credentials will be read from and/or written to [default: ./]
   -tk, --twitter-api-key <twitter-api-key>        Twitter API Key (or TWITTER_API_KEY env var)
   -ts, --twitter-api-secret <twitter-api-secret>  Twitter API Secret (or TWITTER_API_SECRET env var)
   -aa, --azure-account <azure-account>            Azure Storage account name (or STORAGE_ACCOUNT env var)
@@ -39,3 +42,10 @@ Commands:
 
 Use this bot at your own risks. There are sone twitter rules that prevent exacly this https://help.twitter.com/en/using-twitter/twitter-follow-limit
 
+### Docker
+
+There's a docker image you can run at [Docker Hub](https://hub.docker.com/repository/docker/sebagomez/zombiefollower).
+
+> docker run --rm -v `pwd`/bin:/tmp/cred sebagomez/zombiefollower unfollow --config-path /tmp/cred
+
+In my case I want the program to use the credentials I already have serialized under `$(pwd)/bin`

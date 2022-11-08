@@ -124,22 +124,25 @@ namespace zombiefollower
 				Random random = new Random();
 				HashSet<long> following = await args.Twitter!.GetFollowing();
 				HashSet<long> followed = new HashSet<long>();
+				Dictionary<long, string> zombied = await args.Azure!.GetFollowedBefore(DateTime.MaxValue);
 				foreach (var status in (await args.Twitter!.GetTwits(searchTerm)))
 				{
 					s_total++;
-					if (following.Contains(status.user.id) || followed.Contains(status.user.id))
+					if (following.Contains(status.user.id) || 
+						followed.Contains(status.user.id) || 
+						zombied.ContainsKey(status.user.id))
 					{
-						Console.WriteLine($"Already following {status.user}");
+						Console.WriteLine($"⛔️ {status.user}");
 						continue;
 					}
 
 					if (status.user.id_str == args.Twitter!.Me.UserId)
 					{
-						Console.WriteLine($"Don't follow yourself {status.user}");
+						Console.WriteLine($"🤔 {status.user}");
 						continue;
 					}
 
-					Console.WriteLine($"Follow {status.user}");
+					Console.WriteLine($"✅ {status.user}");
 
 					if (!dryRun)
 					{
@@ -191,7 +194,7 @@ namespace zombiefollower
 					}
 					s_changed++;
 
-					Console.WriteLine($"Unfollowed {followed.Value}");
+					Console.WriteLine($"👋 {followed.Value}");
 				}
 			}
 			catch (Exception ex)
