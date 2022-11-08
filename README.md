@@ -1,3 +1,5 @@
+[![Docker build](https://github.com/sebagomez/zombiefollower/actions/workflows/docker-build.yml/badge.svg)](https://github.com/sebagomez/zombiefollower/actions/workflows/docker-build.yml)
+
 ## 🧟 Zombie follower
 
 I used this bot to follow accounts that twitted about a particular subject.
