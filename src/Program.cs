@@ -48,6 +48,12 @@ namespace zombiefollower
 				);
 				dryRunOption.SetDefaultValue(false);
 
+				var configPathOption = new Option<DirectoryInfo>(
+					aliases: new string[] { "--config-path", "-cf" },
+					description: $"Path where credentials will be read from and/or written to"
+				);
+				configPathOption.SetDefaultValue(new DirectoryInfo("./"));
+
 				var searchOption = new Option<string>(
 					aliases: new string[] { "--search", "-s" },
 					description: "Search term you want to follow"
@@ -63,6 +69,7 @@ namespace zombiefollower
 
 				var rootCommand = new RootCommand("Follows twitter users that had twiited a specific term");
 				rootCommand.AddGlobalOption(dryRunOption);
+				rootCommand.AddGlobalOption(configPathOption);
 				rootCommand.AddGlobalOption(twitterApiKeyOption);
 				rootCommand.AddGlobalOption(twitterApiSercetOption);
 				rootCommand.AddGlobalOption(azureAccountOption);
@@ -72,13 +79,13 @@ namespace zombiefollower
 				{
 					searchOption
 				};
-				followCommand.SetHandler<string, bool, string?, string?, string?, string?>(Follow, searchOption, dryRunOption, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
+				followCommand.SetHandler<string, bool, DirectoryInfo, string?, string?, string?, string?>(Follow, searchOption, dryRunOption, configPathOption, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
 
 				var unfollowCommand = new Command("unfollow", "Unfollows users followed via zombiefollower before the <from> date argument")
 				{
 					fromOption
 				};
-				unfollowCommand.SetHandler<DateOnly?, bool, string?, string?, string?, string?>(Unfollow, fromOption, dryRunOption, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
+				unfollowCommand.SetHandler<DateOnly?, bool, DirectoryInfo, string?, string?, string?, string?>(Unfollow, fromOption, dryRunOption, configPathOption, twitterApiKeyOption, twitterApiSercetOption, azureAccountOption, azureKeyOption);
 
 				rootCommand.AddCommand(followCommand);
 				rootCommand.AddCommand(unfollowCommand);
@@ -105,11 +112,12 @@ namespace zombiefollower
 			return exitCode;
 		}
 
-		static async Task<int> Follow(string searchTerm, bool dryRun, string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
+		static async Task<int> Follow(string searchTerm, bool dryRun, DirectoryInfo configPath, string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
 		{
 			try
 			{
-				ZombieArguments? args = CredentialsManager.SignIn(twitterApiKey, twitterApiSecret, azureAccount, azureKey);
+				CredentialsManager credMgr = new CredentialsManager(configPath);
+				ZombieArguments? args = credMgr.SignIn(twitterApiKey, twitterApiSecret, azureAccount, azureKey);
 				if (args is null)
 					return NOT_OK;
 
@@ -151,11 +159,12 @@ namespace zombiefollower
 			return OK;
 		}
 
-		static async Task<int> Unfollow(DateOnly? fromDate, bool dryRun, string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
+		static async Task<int> Unfollow(DateOnly? fromDate, bool dryRun, DirectoryInfo configPath, string? twitterApiKey, string? twitterApiSecret, string? azureAccount, string? azureKey)
 		{
 			try
 			{
-				ZombieArguments? args = CredentialsManager.SignIn(twitterApiKey, twitterApiSecret, azureAccount, azureKey);
+				CredentialsManager credMgr = new CredentialsManager(configPath);
+				ZombieArguments? args = credMgr.SignIn(twitterApiKey, twitterApiSecret, azureAccount, azureKey);
 				if (args is null)
 					return NOT_OK;
 
