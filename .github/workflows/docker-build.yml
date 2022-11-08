@@ -1,0 +1,33 @@
+name: Docker build
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+    - src/**
+    - .github/workflows/docker-build.yml
+
+env:
+  config: Release
+
+jobs:
+
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install XMLLint
+      run: sudo apt-get install libxml2-utils
+    - name: Get tagname
+      run: echo "build_number=$(xmllint --xpath 'string(//Version)' ./src/zombiefollower.csproj)" >> $GITHUB_ENV
+    - name: Build and push Docker images
+      uses: docker/build-push-action@v1.1.1
+      with:
+        username: sebagomez
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        tags: latest,${{ env.build_number }}
+        add_git_labels: false
+        path: ./
+        push: false 
