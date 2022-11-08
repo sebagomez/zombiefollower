@@ -3,7 +3,7 @@ name: Docker build
 on:
   push:
     branches:
-      - master
+    - main
     paths:
     - src/**
     - .github/workflows/docker-build.yml
