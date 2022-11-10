@@ -4,21 +4,25 @@
 
 I used this bot to follow accounts that twitted about a particular subject.
 
-To make it work for you, you'll need to create a twiiter app. Go to https://developer.twitter.com/en/portal/projects-and-apps and create an APP. Grab the API Key and Secret. Make sure you go to User Authentication Settings and under App Permissions select *Read and Write*.   
-![](./res/atwitter-permissions.png)
+To make it work for you, you'll need to create a twiiter app. Go to https://developer.twitter.com/en/portal/projects-and-apps and create an APP. Grab the API Key and Secret. Make sure you go to User Authentication Settings and under App Permissions select **Read and Write**.  
+![](./res/twitter-permissions.png)
 
 You'll also need an Azure Storage table to store followed accounts (in case you want to unfollow them at a later time).
 
 Now execute the binary as follows:
 ```bash
-dotnet zombiefollower.dll follow --search <search-terms> --twitter-api-key <twitter-api-key> --twitter-api-secret <twitter-api-secret> --azure-account <azure-account> --azure-key <azure-key> 
+> dotnet zombiefollower.dll follow --search Kubernetes --twitter-api-key <twitter-api-key> --twitter-api-secret <twitter-api-secret> --azure-account <azure-account> --azure-key <azure-key> 
+Getting Twitter authentication token...done!
+Please open your favorite browser and go to this URL to authenticate with Twitter:
+https://api.twitter.com/oauth/authorize?oauth_token=<SOME_TOKEN>
+Insert the pin here:
 ```
 
-You will then be asked to validate your twitter account in your browser and paste the provided code back to the command line.
+Open your browser and paste the url provided, after authorizing at twitter.com, copy the provided pin and paste it in the console... and voila!
 
-And voila! You'll be following (A LOT) of people that twitted about Kubernetes.
+You'll be following (A LOT) of people that twitted about Kubernetes.
 
-Keep in mind the credentials are serialized locally, so you don't have to send credentials everytime you want to run the zombie. Use the config-path argument to tell the progeam the directory where the credential files should be read from and serialized to.
+Keep in mind the credentials are serialized locally, so you don't have to send credentials everytime you want to run the zombie. Use the `config-path` argument to tell the program the directory where the credential files should be read from and serialized to.
 
 ```
 ❯ dotnet zombiefollower.dll --help
@@ -53,15 +57,7 @@ There's a docker image you can run at [Docker Hub](https://hub.docker.com/reposi
 
 > docker run -it --rm -v /Users/seba:/tmp/cred sebagomez/zombiefollower unfollow --twitter-api-key <twitter-api-key> --twitter-api-secret <twitter-api-secret> --azure-account <azure-account> --azure-key <azure-key> --config-path /tmp/cred 
 
-There you will be promted with your Twitter authorization key
+Keep in mind you'll have to run the docker container with th -it argument to make it interactive so you can enter the authentication pin
 
-```bash
-Getting Twitter authentication token...done!
-Please open your favorite browser and go to this URL to authenticate with Twitter:
-https://api.twitter.com/oauth/authorize?oauth_token=<SOME_TOKEN>
-Insert the pin here:
-```
+In my case I want the program to use the credentials I already have serialized under `/Users/seba`
 
-Open your broser and paste the url provided, after authorizing at twitter.com, copy the provided pin and paste it in the console... and voila!
-
-In my case I want the program to use the credentials I already have serialized under ` /Users/seba`
