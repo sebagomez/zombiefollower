@@ -5,6 +5,7 @@
 I used this bot to follow accounts that twitted about a particular subject.
 
 To make it work for you, you'll need to create a twiiter app. Go to https://developer.twitter.com/en/portal/projects-and-apps and create an APP. Grab the API Key and Secret. Make sure you go to User Authentication Settings and under App Permissions select **Read and Write**.  
+
 ![](./res/twitter-permissions.png)
 
 You'll also need an Azure Storage table to store followed accounts (in case you want to unfollow them at a later time).
@@ -46,6 +47,8 @@ Commands:
   follow    Follows users that twitted about the <search> argument
   unfollow  Unfollows users followed via zombiefollower before the <from> date argument
 ```
+
+### Behind the scenes
 
 ![](./res/arch.png)
 
